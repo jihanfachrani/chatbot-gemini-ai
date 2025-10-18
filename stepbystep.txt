@@ -1,0 +1,6 @@
+LANGKAH-LANGKAH PROJECT SEDERHANA DENGAN JAVASCRIPT
+
+git init     #inisialisasi repository untuk git
+npm init -y  # inisialisasi projek berbasis node.js (secara express)
+
+npm install express cors multer dotenv @google/genai
