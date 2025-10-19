@@ -4,7 +4,14 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import { GoogleGenAI } from "@google/genai";
+
+// SESSION 5 - Import path/ulr package
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+// WIP: kita import dan langsung panggil function-nya
 import "dotenv/config";
+import { KeyObject } from "node:crypto";
 
 // Inisialisasi aplikasi
 //
@@ -24,10 +31,26 @@ const upload = multer(); // akan digunakan di dalam recording
 
 const ai = new GoogleGenAI({}); // instantiation menjadi object instance (OOP)
 
+// SESSION 5 - Penambahan path
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // inisialisasi middleware
 //contoh: app.use(namaMiddleware());
 app.use(cors()); // inisialisasi CORS (Cross-Origin Resource Sharing) sebagai middleware
 app.use(express.json());
+
+// SESSION 5 - inisialisasi static directory
+// express.static(rootDirectory)
+app.use(
+  express.static(
+    path.join(__dirname, "static") // rootDirectory
+    // akan set `/` sebagai static directory
+    // folder "static" (atau nama yang kita set diatas) sebagai
+    // direktori tujuan; tapi ketika ada route handler yang di-set di bawahnya,
+    // route handler tersebut akan diutamakan
+  )
+);
 
 // inisialisasi routing
 // contoh: app.get(), app.post(), app.put(), dll
@@ -79,6 +102,97 @@ app.post("/generate-text", async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Gagal ges, server-nya kayaknya lagi bermasalah!",
+      data: null,
+    });
+  }
+});
+
+// fitur chat
+// endpoint: POST /api/chat
+app.post("/api/chat", async (req, res) => {
+  const { conversation } = req.body;
+
+  try {
+    // Guard #1: Cek conversation apakah berupa array atau tidak
+    // caranya dengan Array.isArray().
+    if (!Array.isArray(conversation)) {
+      throw new Error("conversation harus berupa array!");
+    }
+
+    // Guars #2: Cek setiap pesan dalam conversation, apakah valid atau tidak.
+    let messageIsValid = true;
+
+    if (conversation.length === 0) {
+      throw new Error("Conversation tidak boleh kosong!");
+    }
+
+    conversation.forEach((message) => {
+      // bisa tambah satu kondisi lagi untuk cek variabel messageValid di sini
+
+      // Kondisi #1 -- message harus berupa object dan bukan `null`
+      if (!message || typeof message !== "object") {
+        messageIsValid = false;
+        return;
+      }
+
+      const keys = Object.keys(message);
+      const objectHasValidKeys = keys.every((key) =>
+        ["text", "role"].includes(key)
+      );
+
+      // Looping Kondisi di dalam array
+      // .every() --> &&-nya si if --> 1 false, semuanya false
+      // .some() --> ||-nya si if --> 1 true, semuanya jadi true
+
+      // Kondisi #2 -- massage harus punya struktur yang valid
+      if (keys.length !== 2 || objectHasValidKeys) {
+        messageIsValid = false;
+        return;
+      }
+
+      const { text, role } = message;
+
+      // Kondisi #3A -- role harus valid
+      if (!["model", "user"].includes(role)) {
+        messageIsValid = false;
+        return;
+      }
+
+      // Kondisi #3B -- text harus valid
+      if (!text || typeof text !== "string") {
+        messageIsValid = false;
+        return;
+      }
+    });
+
+    if (!messageIsValid) {
+      throw new Error("Message harus valid!");
+    }
+
+    // Proses daging-nya
+
+    const contents = conversation.map(({ role, text }) => ({
+      role,
+      parts: [{ text }],
+    }));
+
+    const aiResponse = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents,
+      config: {
+        systemInstruction: "Harus membalas dengan bahasa Sunda.",
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Berhasil dibalas oleh Google Gemini!",
+      data: aiResponse.text,
+    });
+  } catch (e) {
+    res.status(500).json({
+      success: false,
+      message: e.message,
       data: null,
     });
   }
