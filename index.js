@@ -145,7 +145,7 @@ app.post("/api/chat", async (req, res) => {
       // .some() --> ||-nya si if --> 1 true, semuanya jadi true
 
       // Kondisi #2 -- massage harus punya struktur yang valid
-      if (keys.length !== 2 || objectHasValidKeys) {
+      if (keys.length !== 2 || !objectHasValidKeys) {
         messageIsValid = false;
         return;
       }
